@@ -1,0 +1,573 @@
+{
+  "project": "ket-grammar-coach",
+  "version": "phase1_v0.2_real_subset",
+  "source_files": [
+    "KET单词.pdf",
+    "Prepare_MapofContents_Levels1-9.pdf"
+  ],
+  "grammar_points": [
+    {
+      "id": "gp_there_is_are",
+      "label": "there is / there are",
+      "description": "Use there is with singular nouns and there are with plural nouns.",
+      "template_type": "there_be_choice",
+      "source": {
+        "file": "Prepare_MapofContents_Levels1-9.pdf",
+        "level": "Prepare Level 1",
+        "pdf_page": 1,
+        "unit": "3 MY HOME",
+        "grammar_items": [
+          "there is / there are",
+          "in / on"
+        ]
+      }
+    },
+    {
+      "id": "gp_3rd_person_s",
+      "label": "Present simple: third person singular",
+      "description": "Use the present simple with -s/-es for he/she/it.",
+      "template_type": "present_simple_3rd_person_choice",
+      "source": {
+        "file": "Prepare_MapofContents_Levels1-9.pdf",
+        "level": "Prepare Level 1",
+        "pdf_page": 1,
+        "unit": "7 MY DAY",
+        "grammar_items": [
+          "Present simple +",
+          "Present simple endings",
+          "Present simple -"
+        ]
+      }
+    },
+    {
+      "id": "gp_past_simple",
+      "label": "Past simple",
+      "description": "Use the past simple for finished actions in the past, including regular and irregular verbs.",
+      "template_type": "past_simple_choice",
+      "source": {
+        "file": "Prepare_MapofContents_Levels1-9.pdf",
+        "level": "Prepare Level 2",
+        "pdf_page": 3,
+        "units": [
+          "5 MOMENTS IN HISTORY",
+          "6 WHAT A GREAT JOB!",
+          "7 AN EXCITING TRIP"
+        ],
+        "grammar_items": [
+          "Past simple: regular verbs",
+          "Past simple: negatives and questions",
+          "Past simple: irregular verbs"
+        ]
+      }
+    }
+  ],
+  "vocab_a2_subset": [
+    {
+      "lemma": "go",
+      "part_of_speech": "verb",
+      "forms": {
+        "base": "go",
+        "third_person": "goes",
+        "past": "went"
+      },
+      "tags": [
+        "gp_3rd_person_s",
+        "gp_past_simple",
+        "movement",
+        "irregular_past"
+      ],
+      "source": {
+        "file": "KET单词.pdf",
+        "pdf_page": 11,
+        "entry": "go (v)",
+        "source_type": "direct_for_lemma",
+        "derived_forms": [
+          "goes",
+          "went"
+        ]
+      }
+    },
+    {
+      "lemma": "play",
+      "part_of_speech": "verb",
+      "forms": {
+        "base": "play",
+        "third_person": "plays",
+        "past": "played"
+      },
+      "tags": [
+        "gp_3rd_person_s",
+        "gp_past_simple",
+        "regular_past"
+      ],
+      "source": {
+        "file": "KET单词.pdf",
+        "pdf_page": 16,
+        "entry": "play (v & n)",
+        "source_type": "direct_for_lemma",
+        "derived_forms": [
+          "plays",
+          "played"
+        ]
+      }
+    },
+    {
+      "lemma": "walk",
+      "part_of_speech": "verb",
+      "forms": {
+        "base": "walk",
+        "third_person": "walks",
+        "past": "walked"
+      },
+      "tags": [
+        "gp_3rd_person_s",
+        "gp_past_simple",
+        "regular_past"
+      ],
+      "source": {
+        "file": "KET单词.pdf",
+        "pdf_page": 22,
+        "entry": "walk (v & n)",
+        "source_type": "direct_for_lemma",
+        "derived_forms": [
+          "walks",
+          "walked"
+        ]
+      }
+    },
+    {
+      "lemma": "watch",
+      "part_of_speech": "verb",
+      "forms": {
+        "base": "watch",
+        "third_person": "watches",
+        "past": "watched"
+      },
+      "tags": [
+        "gp_3rd_person_s",
+        "gp_past_simple",
+        "regular_past"
+      ],
+      "source": {
+        "file": "KET单词.pdf",
+        "pdf_page": 22,
+        "entry": "watch (n & v)",
+        "source_type": "direct_for_lemma",
+        "derived_forms": [
+          "watches",
+          "watched"
+        ]
+      }
+    },
+    {
+      "lemma": "like",
+      "part_of_speech": "verb",
+      "forms": {
+        "base": "like",
+        "third_person": "likes",
+        "past": "liked"
+      },
+      "tags": [
+        "gp_3rd_person_s",
+        "gp_past_simple",
+        "regular_past"
+      ],
+      "source": {
+        "file": "KET单词.pdf",
+        "pdf_page": 13,
+        "entry": "like (adv, prep & v)",
+        "source_type": "direct_for_lemma",
+        "derived_forms": [
+          "likes",
+          "liked"
+        ]
+      }
+    },
+    {
+      "lemma": "read",
+      "part_of_speech": "verb",
+      "forms": {
+        "base": "read",
+        "third_person": "reads",
+        "past": "read"
+      },
+      "tags": [
+        "gp_3rd_person_s",
+        "gp_past_simple",
+        "same_spelling_past"
+      ],
+      "source": {
+        "file": "KET单词.pdf",
+        "pdf_page": 17,
+        "entry": "read (v)",
+        "source_type": "direct_for_lemma",
+        "derived_forms": [
+          "reads",
+          "read"
+        ]
+      }
+    },
+    {
+      "lemma": "visit",
+      "part_of_speech": "verb",
+      "forms": {
+        "base": "visit",
+        "third_person": "visits",
+        "past": "visited"
+      },
+      "tags": [
+        "gp_3rd_person_s",
+        "gp_past_simple",
+        "regular_past"
+      ],
+      "source": {
+        "file": "KET单词.pdf",
+        "pdf_page": 22,
+        "entry": "visit (v)",
+        "source_type": "direct_for_lemma",
+        "derived_forms": [
+          "visits",
+          "visited"
+        ]
+      }
+    },
+    {
+      "lemma": "have",
+      "part_of_speech": "verb",
+      "forms": {
+        "base": "have",
+        "third_person": "has",
+        "past": "had"
+      },
+      "tags": [
+        "gp_3rd_person_s",
+        "gp_past_simple",
+        "irregular_past"
+      ],
+      "source": {
+        "file": "KET单词.pdf",
+        "pdf_page": 11,
+        "entry": "have (av & v)",
+        "source_type": "direct_for_lemma",
+        "derived_forms": [
+          "has",
+          "had"
+        ]
+      }
+    },
+    {
+      "lemma": "book",
+      "part_of_speech": "noun",
+      "forms": {
+        "singular": "book",
+        "plural": "books"
+      },
+      "countability": "countable",
+      "tags": [
+        "gp_there_is_are",
+        "classroom",
+        "home"
+      ],
+      "source": {
+        "file": "KET单词.pdf",
+        "pdf_page": 5,
+        "entry": "book (n & v)",
+        "source_type": "direct_for_lemma",
+        "derived_forms": [
+          "books"
+        ]
+      }
+    },
+    {
+      "lemma": "bag",
+      "part_of_speech": "noun",
+      "forms": {
+        "singular": "bag",
+        "plural": "bags"
+      },
+      "countability": "countable",
+      "tags": [
+        "gp_there_is_are",
+        "classroom",
+        "personal_items"
+      ],
+      "source": {
+        "file": "KET单词.pdf",
+        "pdf_page": 5,
+        "entry": "bag (n)",
+        "source_type": "direct_for_lemma",
+        "derived_forms": [
+          "bags"
+        ]
+      }
+    },
+    {
+      "lemma": "chair",
+      "part_of_speech": "noun",
+      "forms": {
+        "singular": "chair",
+        "plural": "chairs"
+      },
+      "countability": "countable",
+      "tags": [
+        "gp_there_is_are",
+        "home",
+        "classroom"
+      ],
+      "source": {
+        "file": "KET单词.pdf",
+        "pdf_page": 7,
+        "entry": "chair (n)",
+        "source_type": "direct_for_lemma",
+        "derived_forms": [
+          "chairs"
+        ]
+      }
+    },
+    {
+      "lemma": "room",
+      "part_of_speech": "noun",
+      "forms": {
+        "singular": "room",
+        "plural": "rooms"
+      },
+      "countability": "countable",
+      "tags": [
+        "gp_there_is_are",
+        "home"
+      ],
+      "source": {
+        "file": "KET单词.pdf",
+        "pdf_page": 18,
+        "entry": "room (n)",
+        "source_type": "direct_for_lemma",
+        "derived_forms": [
+          "rooms"
+        ]
+      }
+    },
+    {
+      "lemma": "school",
+      "part_of_speech": "noun",
+      "forms": {
+        "singular": "school",
+        "plural": "schools"
+      },
+      "countability": "countable",
+      "tags": [
+        "location",
+        "education"
+      ],
+      "source": {
+        "file": "KET单词.pdf",
+        "pdf_page": 18,
+        "entry": "school (n)",
+        "source_type": "direct_for_lemma",
+        "derived_forms": [
+          "schools"
+        ]
+      }
+    },
+    {
+      "lemma": "park",
+      "part_of_speech": "noun",
+      "forms": {
+        "singular": "park",
+        "plural": "parks"
+      },
+      "countability": "countable",
+      "tags": [
+        "location",
+        "outdoors"
+      ],
+      "source": {
+        "file": "KET单词.pdf",
+        "pdf_page": 16,
+        "entry": "park (n & v)",
+        "source_type": "direct_for_lemma",
+        "derived_forms": [
+          "parks"
+        ]
+      }
+    },
+    {
+      "lemma": "student",
+      "part_of_speech": "noun",
+      "forms": {
+        "singular": "student",
+        "plural": "students"
+      },
+      "countability": "countable",
+      "tags": [
+        "people",
+        "education"
+      ],
+      "source": {
+        "file": "KET单词.pdf",
+        "pdf_page": 20,
+        "entry": "student (n)",
+        "source_type": "direct_for_lemma",
+        "derived_forms": [
+          "students"
+        ]
+      }
+    },
+    {
+      "lemma": "teacher",
+      "part_of_speech": "noun",
+      "forms": {
+        "singular": "teacher",
+        "plural": "teachers"
+      },
+      "countability": "countable",
+      "tags": [
+        "people",
+        "education"
+      ],
+      "source": {
+        "file": "KET单词.pdf",
+        "pdf_page": 20,
+        "entry": "teacher (n)",
+        "source_type": "direct_for_lemma",
+        "derived_forms": [
+          "teachers"
+        ]
+      }
+    },
+    {
+      "lemma": "friend",
+      "part_of_speech": "noun",
+      "forms": {
+        "singular": "friend",
+        "plural": "friends"
+      },
+      "countability": "countable",
+      "tags": [
+        "people",
+        "social"
+      ],
+      "source": {
+        "file": "KET单词.pdf",
+        "pdf_page": 10,
+        "entry": "friend (n)",
+        "source_type": "direct_for_lemma",
+        "derived_forms": [
+          "friends"
+        ]
+      }
+    },
+    {
+      "lemma": "apple",
+      "part_of_speech": "noun",
+      "forms": {
+        "singular": "apple",
+        "plural": "apples"
+      },
+      "countability": "countable",
+      "tags": [
+        "food"
+      ],
+      "source": {
+        "file": "KET单词.pdf",
+        "pdf_page": 4,
+        "entry": "apple (n)",
+        "source_type": "direct_for_lemma",
+        "derived_forms": [
+          "apples"
+        ]
+      }
+    },
+    {
+      "lemma": "banana",
+      "part_of_speech": "noun",
+      "forms": {
+        "singular": "banana",
+        "plural": "bananas"
+      },
+      "countability": "countable",
+      "tags": [
+        "food"
+      ],
+      "source": {
+        "file": "KET单词.pdf",
+        "pdf_page": 5,
+        "entry": "banana (n)",
+        "source_type": "direct_for_lemma",
+        "derived_forms": [
+          "bananas"
+        ]
+      }
+    },
+    {
+      "lemma": "there",
+      "part_of_speech": "adverb",
+      "forms": {
+        "base": "there"
+      },
+      "tags": [
+        "gp_there_is_are",
+        "structure_word"
+      ],
+      "source": {
+        "file": "KET单词.pdf",
+        "pdf_page": 21,
+        "entry": "there (adv)",
+        "source_type": "direct"
+      }
+    },
+    {
+      "lemma": "day",
+      "part_of_speech": "noun",
+      "forms": {
+        "singular": "day",
+        "plural": "days"
+      },
+      "countability": "countable",
+      "tags": [
+        "time_marker"
+      ],
+      "source": {
+        "file": "KET单词.pdf",
+        "pdf_page": 8,
+        "entry": "day (n)",
+        "source_type": "direct_for_lemma",
+        "derived_forms": [
+          "days"
+        ]
+      }
+    },
+    {
+      "lemma": "yesterday",
+      "part_of_speech": "adverb",
+      "forms": {
+        "base": "yesterday"
+      },
+      "tags": [
+        "gp_past_simple",
+        "time_marker"
+      ],
+      "source": {
+        "file": "KET单词.pdf",
+        "pdf_page": 23,
+        "entry": "yesterday (adv)",
+        "source_type": "direct"
+      }
+    },
+    {
+      "lemma": "home",
+      "part_of_speech": "noun_adverb",
+      "forms": {
+        "base": "home"
+      },
+      "tags": [
+        "location"
+      ],
+      "source": {
+        "file": "KET单词.pdf",
+        "pdf_page": 12,
+        "entry": "home (n & adv)",
+        "source_type": "direct"
+      }
+    }
+  ]
+}

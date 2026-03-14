@@ -1,0 +1,56 @@
+[
+  {
+    "id": "gp_there_is_are",
+    "label": "there is / there are",
+    "description": "Use there is with singular nouns and there are with plural nouns.",
+    "template_type": "there_be_choice",
+    "source": {
+      "file": "Prepare_MapofContents_Levels1-9.pdf",
+      "level": "Prepare Level 1",
+      "pdf_page": 1,
+      "unit": "3 MY HOME",
+      "grammar_items": [
+        "there is / there are",
+        "in / on"
+      ]
+    }
+  },
+  {
+    "id": "gp_3rd_person_s",
+    "label": "Present simple: third person singular",
+    "description": "Use the present simple with -s/-es for he/she/it.",
+    "template_type": "present_simple_3rd_person_choice",
+    "source": {
+      "file": "Prepare_MapofContents_Levels1-9.pdf",
+      "level": "Prepare Level 1",
+      "pdf_page": 1,
+      "unit": "7 MY DAY",
+      "grammar_items": [
+        "Present simple +",
+        "Present simple endings",
+        "Present simple -"
+      ]
+    }
+  },
+  {
+    "id": "gp_past_simple",
+    "label": "Past simple",
+    "description": "Use the past simple for finished actions in the past, including regular and irregular verbs.",
+    "template_type": "past_simple_choice",
+    "source": {
+      "file": "Prepare_MapofContents_Levels1-9.pdf",
+      "level": "Prepare Level 2",
+      "pdf_page": 3,
+      "units": [
+        "5 MOMENTS IN HISTORY",
+        "6 WHAT A GREAT JOB!",
+        "7 AN EXCITING TRIP"
+      ],
+      "grammar_items": [
+        "Past simple: regular verbs",
+        "Past simple: negatives and questions",
+        "Past simple: irregular verbs"
+      ]
+    }
+  }
+]
