@@ -1,6 +1,6 @@
 # KET Grammar Coach — API 约定
 
-后端 Base URL 示例：`http://localhost:8000`。以下为最小可用接口与 JSON 示例。
+后端 Base URL 示例：`http://localhost:8001`（本地开发）。以下为最小可用接口与 JSON 示例。
 
 ---
 

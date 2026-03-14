@@ -36,7 +36,7 @@
 ## 5. 部署与运行
 
 - 前端：`cd web && npm i && npm run dev`（开发）；`npm run build && npm run start`（生产）。
-- 后端：`cd app && pip install -r requirements.txt && uvicorn main:app --reload --port 8000`。
+- 后端：`cd app && pip install -r requirements.txt && uvicorn main:app --reload --port 8001`。
 - 数据库：`docker compose up -d` 后配置 `app/.env` 中的 DB 连接。
 
 ---
