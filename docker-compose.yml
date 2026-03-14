@@ -1,0 +1,23 @@
+# 本地开发：PostgreSQL（可选）。后端单独用 uvicorn 启动。
+# 使用：docker compose up -d
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: ket-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ket
+      POSTGRES_PASSWORD: ket
+      POSTGRES_DB: ket_grammar
+    ports:
+      - "5432:5432"
+    volumes:
+      - ket_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ket -d ket_grammar"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  ket_db:
