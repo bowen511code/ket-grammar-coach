@@ -5,6 +5,7 @@ Phase 1 从 resources/ 加载语法点与 A2 词库子集，供后续动态出�
 Step 2：按 grammar_point 动态出题（generate_question）。
 Step 3：题目注册表 + hint/submit/attempts 支持动态题。
 Phase 1.5：受控 LLM 出题（优先）+ 模板 fallback。
+Phase 2 Step 1：错因分类（classify_error），后续将接入 POST /api/submit 返回 error_type / error_label。
 """
 import json
 import os
@@ -92,6 +93,8 @@ attempts: list[dict] = []
 attempt_id_counter = 0
 # 动态题唯一 id 计数，每次 generate_question 递增，避免 QUESTION_REGISTRY 覆盖
 question_counter = 0
+# Phase 2 Step 3：补救题独立计数，id 形如 q_rem_001
+remedial_question_counter = 0
 
 # 动态题注册表：question_id -> 题目对象（含 expected_answer 等，供 hint/submit 查用）
 QUESTION_REGISTRY: dict[str, dict[str, Any]] = {}
@@ -110,6 +113,7 @@ def _register_fixed_question() -> None:
         "grammar_point": FIXED_QUESTION["grammar_point"],
         "grammar_point_id": "gp_3rd_person_s",
         "expected_answer": EXPECTED_ANSWER,
+        "option_forms": {"go": "base", "goes": "third_person", "went": "past", "going": "ing"},
     }
     QUESTION_REGISTRY[QUESTION_ID] = q
 
@@ -188,8 +192,14 @@ def _ing_form(base: str) -> str:
 # ----- Phase 1.5：受控 LLM 出题 + 校验 + 模板 fallback -----
 
 LLM_QUESTION_TIMEOUT = 15
-# 题目对象中仅后端保留、不返回前端的字段（供 get_question 过滤）
-_QUESTION_INTERNAL_KEYS = frozenset({"expected_answer", "source", "_debug_reason"})
+# 题目对象中仅后端保留、不返回前端的字段（供 get_question / remedial_question 过滤）
+# Phase 2 Step 3.5：补救题内部元数据 is_remedial_question / parent_question_id 不暴露给前端
+# Phase 2 错因增强：option_forms 为选项→形式映射，仅后端分类用，不返回前端
+_QUESTION_INTERNAL_KEYS = frozenset({
+    "expected_answer", "source", "_debug_reason",
+    "is_remedial_question", "parent_question_id",
+    "option_forms",
+})
 
 
 def _validate_llm_question(obj: Any, grammar_point_id: str) -> bool:
@@ -439,6 +449,7 @@ def _generate_question_template(grammar_point_id: str, next_id: str) -> dict[str
             "grammar_point": label,
             "grammar_point_id": grammar_point_id,
             "expected_answer": third,
+            "option_forms": _build_option_forms_for_verb_question(base, third, past, ing),
         }
 
     if grammar_point_id == "gp_past_simple":
@@ -467,6 +478,7 @@ def _generate_question_template(grammar_point_id: str, next_id: str) -> dict[str
             "grammar_point": label,
             "grammar_point_id": grammar_point_id,
             "expected_answer": past,
+            "option_forms": _build_option_forms_for_verb_question(base, third, past, ing),
         }
 
     if grammar_point_id == "gp_there_is_are":
@@ -483,10 +495,129 @@ def _generate_question_template(grammar_point_id: str, next_id: str) -> dict[str
             "grammar_point": label,
             "grammar_point_id": grammar_point_id,
             "expected_answer": expected,
+            "option_forms": _build_option_forms_for_there_be(),
         }
 
     # 未知语法点：退回第一项
     return _generate_question_template(GRAMMAR_POINTS[0]["id"], next_id)
+
+
+def generate_remedial_question(grammar_point_id: str, error_type: str, parent_question_id: str) -> dict[str, Any]:
+    """
+    Phase 2 Step 3：根据语法点与错因生成一道补救题，复用模板逻辑，按 error_type 可缩小模板范围。
+    Step 3.5：题目对象内增加 is_remedial_question=True、parent_question_id，仅后端使用，不返回前端。
+    返回题目 dict（含 id, type, text, options, grammar_point, grammar_point_id, expected_answer 等），
+    调用方需写入 QUESTION_REGISTRY 并过滤内部字段后再返回给前端。
+    """
+    global remedial_question_counter
+    remedial_question_counter += 1
+    next_id = f"q_rem_{remedial_question_counter:03d}"
+    _remedial_meta = {"is_remedial_question": True, "parent_question_id": parent_question_id}
+    gp_map = {gp["id"]: gp for gp in GRAMMAR_POINTS}
+    gp = gp_map.get(grammar_point_id)
+    if not gp:
+        grammar_point_id = GRAMMAR_POINTS[0]["id"]
+        gp = GRAMMAR_POINTS[0]
+    label = gp.get("label") or grammar_point_id
+
+    if grammar_point_id == "gp_3rd_person_s":
+        valid = [t for t in THIRD_PERSON_TEMPLATES if _verb_by_lemma(t["lemma"])]
+        if not valid:
+            valid = [{"lemma": "go", "sentence": "She _____ to school every day."}]
+        if error_type == "missing_3rd_person_s":
+            pool = [t for t in valid if "every day" in t.get("sentence", "") or "every week" in t.get("sentence", "")]
+            if not pool:
+                pool = valid
+        elif error_type == "chose_past_instead_of_present":
+            pool = [t for t in valid if "every day" in t.get("sentence", "") or "every week" in t.get("sentence", "")]
+            if not pool:
+                pool = valid
+        else:
+            pool = valid
+        template = random.choice(pool)
+        verb = _verb_by_lemma(template["lemma"]) or _verb_by_lemma("go") or {"forms": {"base": "go", "third_person": "goes", "past": "went"}}
+        forms = verb.get("forms") or {}
+        base = forms.get("base", "go")
+        third = forms.get("third_person", "goes")
+        past = forms.get("past", "went")
+        ing = _ing_form(base)
+        text = template.get("sentence", "She _____ to school every day.")
+        options = [base, third, past, ing]
+        random.shuffle(options)
+        return {
+            "id": next_id,
+            "type": "multiple_choice",
+            "text": text,
+            "options": options,
+            "grammar_point": label,
+            "grammar_point_id": grammar_point_id,
+            "expected_answer": third,
+            "option_forms": _build_option_forms_for_verb_question(base, third, past, ing),
+            **_remedial_meta,
+        }
+
+    if grammar_point_id == "gp_past_simple":
+        valid = [t for t in PAST_SIMPLE_TEMPLATES if _verb_by_lemma(t["lemma"])]
+        if not valid:
+            valid = [{"lemma": "go", "sentence": "Yesterday she _____ to the park."}]
+        if error_type == "used_base_instead_of_past":
+            pool = [t for t in valid if "yesterday" in t.get("sentence", "") or "last" in t.get("sentence", "")]
+            if not pool:
+                pool = valid
+        else:
+            pool = valid
+        template = random.choice(pool)
+        verb = _verb_by_lemma(template["lemma"]) or _verb_by_lemma("go") or {"forms": {"base": "go", "third_person": "goes", "past": "went"}}
+        forms = verb.get("forms") or {}
+        base = forms.get("base", "go")
+        third = forms.get("third_person", "goes")
+        past = forms.get("past", "went")
+        ing = _ing_form(base)
+        text = template.get("sentence", "Yesterday she _____ to the park.")
+        options = [base, third, past, ing]
+        random.shuffle(options)
+        return {
+            "id": next_id,
+            "type": "multiple_choice",
+            "text": text,
+            "options": options,
+            "grammar_point": label,
+            "grammar_point_id": grammar_point_id,
+            "expected_answer": past,
+            "option_forms": _build_option_forms_for_verb_question(base, third, past, ing),
+            **_remedial_meta,
+        }
+
+    if grammar_point_id == "gp_there_is_are":
+        if error_type == "singular_plural_mismatch":
+            pool = [e for e in THERE_BE_SENTENCES if "two " in e.get("text", "") or "a " in e.get("text", "")]
+            if not pool:
+                pool = THERE_BE_SENTENCES
+        elif error_type == "chose_am_or_be_instead_of_is_are":
+            pool = THERE_BE_SENTENCES
+        else:
+            pool = THERE_BE_SENTENCES
+        entry = random.choice(pool)
+        text = entry["text"]
+        expected = entry["expected"]
+        options = ["is", "are", "am", "be"]
+        random.shuffle(options)
+        return {
+            "id": next_id,
+            "type": "multiple_choice",
+            "text": text,
+            "options": options,
+            "grammar_point": label,
+            "grammar_point_id": grammar_point_id,
+            "expected_answer": expected,
+            "option_forms": _build_option_forms_for_there_be(),
+            **_remedial_meta,
+        }
+
+    q = _generate_question_template(grammar_point_id, next_id)
+    q["is_remedial_question"] = True
+    q["parent_question_id"] = parent_question_id
+    return q
 
 
 def _append_recent_text(grammar_point_id: str, text: str) -> None:
@@ -531,6 +662,7 @@ def generate_question(grammar_point_id: str) -> dict[str, Any]:
             grammar_point_id, next_id, label, description, recent_texts=recent
         )
         if llm_q is not None:
+            llm_q["option_forms"] = _infer_option_forms_for_question(llm_q, grammar_point_id)
             text = llm_q["text"].strip()
             if text in recent:
                 llm_q2, reason2 = _generate_question_llm(
@@ -538,6 +670,7 @@ def generate_question(grammar_point_id: str) -> dict[str, Any]:
                 )
                 if llm_q2 is not None and llm_q2["text"].strip() not in recent:
                     llm_q = llm_q2
+                    llm_q["option_forms"] = _infer_option_forms_for_question(llm_q, grammar_point_id)
                     llm_q["source"] = "llm"
                     llm_q["_debug_reason"] = None
                     _append_recent_text(grammar_point_id, llm_q["text"])
@@ -553,7 +686,7 @@ def generate_question(grammar_point_id: str) -> dict[str, Any]:
             llm_q["_debug_reason"] = None
             _append_recent_text(grammar_point_id, llm_q["text"])
             print(f"[Phase 1.5] question source=llm id={next_id}", flush=True)
-            return llm_q
+            return llm_q  # option_forms already set above
         fallback_reason = reason or "llm_request_failed"
         q = _generate_question_template(grammar_point_id, next_id)
         q["source"] = "template"
@@ -604,6 +737,276 @@ def generate_explanation(question: dict[str, Any], correct: bool, answer: str) -
     return explanations.get(gp_id, "请根据语法规则检查主语和时态，选出正确答案。")
 
 
+# ----- Phase 2 Step 1：错因分类（规则判断，暂不接入 submit 响应） -----
+#
+# 典型自检示例（人工验证用）：
+#   gp_3rd_person_s: expected=goes, answer=go   -> missing_3rd_person_s
+#   gp_past_simple:  expected=went, answer=goes -> used_3rd_person_instead_of_past
+#   gp_there_is_are: expected=are,  answer=is    -> singular_plural_mismatch
+#
+# 后续 Step 2 将在 POST /api/submit 答错分支中调用 classify_error，并将 error_type / error_label 返回前端。
+
+ERROR_TYPE_LABELS: dict[str, str] = {
+    # gp_3rd_person_s
+    "missing_3rd_person_s": "漏加第三人称单数 -s/-es",
+    "chose_past_instead_of_present": "误选过去式而非现在时",
+    "chose_ing_instead_of_finite": "误选 -ing 形式而非谓语动词形式",
+    # gp_past_simple
+    "used_base_instead_of_past": "用了动词原形而非过去式",
+    "used_3rd_person_instead_of_past": "用了第三人称单数而非过去式",
+    "used_ing_instead_of_past": "用了 -ing 形式而非过去式",
+    # gp_there_is_are
+    "singular_plural_mismatch": "单复数与主语不一致",
+    "chose_am_or_be_instead_of_is_are": "误选 am/be 而非 is/are",
+    # fallback
+    "unknown": "未分类错误",
+}
+
+
+def _build_option_forms_for_verb_question(base: str, third_person: str, past: str, ing: str) -> dict[str, str]:
+    """构建动词题选项→形式映射，key 为小写。"""
+    return {
+        base.strip().lower(): "base",
+        third_person.strip().lower(): "third_person",
+        past.strip().lower(): "past",
+        ing.strip().lower(): "ing",
+    }
+
+
+def _build_option_forms_for_there_be() -> dict[str, str]:
+    """there is/are 题固定选项→形式映射。"""
+    return {"is": "singular", "are": "plural", "am": "am", "be": "be"}
+
+
+def _infer_option_forms_for_question(question: dict[str, Any], grammar_point_id: str) -> dict[str, str]:
+    """为题目推断 option_forms（如 LLM 题无现成字段时）。无法推断时返回空 dict。"""
+    options = question.get("options") or []
+    if not isinstance(options, list) or len(options) != 4:
+        return {}
+    gp = (grammar_point_id or "").strip()
+    if gp == "gp_there_is_are":
+        opts_set = set(str(o).strip().lower() for o in options if o is not None)
+        if opts_set == {"is", "are", "am", "be"}:
+            return _build_option_forms_for_there_be()
+        return {}
+    if gp in ("gp_3rd_person_s", "gp_past_simple"):
+        return _infer_verb_form_per_option(options, gp)
+    return {}
+
+
+def _allowed_error_types_for_gp(grammar_point_id: str) -> frozenset[str]:
+    """每个语法点允许的 error_type 集合（含 unknown）。"""
+    allowed = {
+        "gp_3rd_person_s": frozenset({
+            "missing_3rd_person_s", "chose_past_instead_of_present", "chose_ing_instead_of_finite", "unknown",
+        }),
+        "gp_past_simple": frozenset({
+            "used_base_instead_of_past", "used_3rd_person_instead_of_past", "used_ing_instead_of_past", "unknown",
+        }),
+        "gp_there_is_are": frozenset({
+            "singular_plural_mismatch", "chose_am_or_be_instead_of_is_are", "unknown",
+        }),
+    }
+    return allowed.get(grammar_point_id, frozenset({"unknown"}))
+
+
+def _infer_verb_form_per_option(options: list[str], grammar_point_id: str) -> dict[str, str]:
+    """
+    根据题目选项与词库，推断每个选项对应的动词形式（base / third_person / past / ing）。
+    用于 classify_error 时区分「选成原形/过去式/-ing」等。
+    若无法匹配词库则返回空 dict。
+    """
+    if not options or len(options) != 4:
+        return {}
+    opts_lower = [str(o).strip().lower() for o in options if o is not None]
+    if len(opts_lower) != 4:
+        return {}
+    opts_set = set(opts_lower)
+    for item in VOCAB_A2:
+        if item.get("part_of_speech") != "verb":
+            continue
+        tags = item.get("tags") or []
+        if grammar_point_id not in tags:
+            continue
+        forms = item.get("forms") or {}
+        base = (forms.get("base") or "").strip().lower()
+        third = (forms.get("third_person") or "").strip().lower()
+        past = (forms.get("past") or "").strip().lower()
+        if not base or not third or not past:
+            continue
+        ing = _ing_form(base).lower()
+        if opts_set == {base, third, past, ing}:
+            return {
+                base: "base",
+                third: "third_person",
+                past: "past",
+                ing: "ing",
+            }
+    return {}
+
+
+def _classify_error_by_rules(
+    grammar_point_id: str,
+    student_answer: str,
+    expected_answer: str,
+    question: dict[str, Any],
+) -> tuple[str, str]:
+    """
+    规则优先错因分类：使用 question.option_forms 判定。
+    若 option_forms 不足或无法命中规则则返回 unknown。
+    """
+    gp_id = (grammar_point_id or "").strip()
+    student = (student_answer or "").strip().lower()
+    expected = (expected_answer or "").strip().lower()
+    option_forms = question.get("option_forms") or {}
+    if not isinstance(option_forms, dict):
+        option_forms = {}
+
+    if gp_id == "gp_3rd_person_s":
+        expected_form = option_forms.get(expected)
+        if expected_form != "third_person":
+            return _error_result("unknown")
+        student_form = option_forms.get(student)
+        if student_form == "base":
+            return _error_result("missing_3rd_person_s")
+        if student_form == "past":
+            return _error_result("chose_past_instead_of_present")
+        if student_form == "ing":
+            return _error_result("chose_ing_instead_of_finite")
+        return _error_result("unknown")
+
+    if gp_id == "gp_past_simple":
+        expected_form = option_forms.get(expected)
+        if expected_form != "past":
+            return _error_result("unknown")
+        student_form = option_forms.get(student)
+        if student_form == "base":
+            return _error_result("used_base_instead_of_past")
+        if student_form == "third_person":
+            return _error_result("used_3rd_person_instead_of_past")
+        if student_form == "ing":
+            return _error_result("used_ing_instead_of_past")
+        return _error_result("unknown")
+
+    if gp_id == "gp_there_is_are":
+        if student in ("am", "be"):
+            return _error_result("chose_am_or_be_instead_of_is_are")
+        if expected in ("is", "are") and student in ("is", "are") and student != expected:
+            return _error_result("singular_plural_mismatch")
+        return _error_result("unknown")
+
+    return _error_result("unknown")
+
+
+LLM_ERROR_CLASSIFY_TIMEOUT = 8
+
+
+def _classify_error_llm(
+    grammar_point_id: str,
+    question: dict[str, Any],
+    expected_answer: str,
+    student_answer: str,
+) -> tuple[str, str]:
+    """
+    仅当规则返回 unknown 时调用。返回 (error_type, error_label)。
+    超时、解析失败、标签不合法则返回 unknown。
+    """
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key or not api_key.strip():
+        return _error_result("unknown")
+    base_url = (os.environ.get("OPENAI_BASE_URL") or "https://api.openai.com/v1").rstrip("/")
+    model = os.environ.get("OPENAI_MODEL") or "gpt-4o-mini"
+    allowed = _allowed_error_types_for_gp(grammar_point_id)
+    allowed_list = sorted(allowed)
+    prompt = f"""You are an English grammar error classifier. Output only valid JSON.
+
+Grammar point: {grammar_point_id}
+Question text: {question.get("text", "")}
+Options: {question.get("options", [])}
+Correct answer: {expected_answer}
+Student's wrong answer: {student_answer}
+
+Choose exactly one error_type from this list: {allowed_list}
+If the error cannot be determined reliably, return "unknown".
+Output format: {{"error_type": "<one of the listed values>"}}
+Do not add explanation. Output the JSON only."""
+
+    body = json.dumps({
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "response_format": {"type": "json_object"},
+        "temperature": 0,
+    }).encode("utf-8")
+    url = f"{base_url}/chat/completions"
+    req = urllib.request.Request(
+        url,
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=LLM_ERROR_CLASSIFY_TIMEOUT) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError, KeyError, TypeError):
+        return _error_result("unknown")
+    choices = data.get("choices") or []
+    if not choices:
+        return _error_result("unknown")
+    content = (choices[0] or {}).get("message") or {}
+    if isinstance(content, dict):
+        content = content.get("content") or ""
+    if not isinstance(content, str):
+        return _error_result("unknown")
+    content = content.strip()
+    if content.startswith("```"):
+        lines = content.split("\n")
+        content = "\n".join(l for l in lines if l.strip() and not l.strip().startswith("```"))
+    try:
+        parsed = json.loads(content)
+        et = (parsed.get("error_type") or "").strip()
+        if et not in allowed:
+            return _error_result("unknown")
+        return _error_result(et)
+    except (json.JSONDecodeError, TypeError):
+        return _error_result("unknown")
+
+
+def classify_error(
+    grammar_point_id: str,
+    student_answer: str,
+    expected_answer: str,
+    question: dict[str, Any],
+) -> tuple[str, str]:
+    """
+    规则优先 + LLM fallback。先按 option_forms 规则判，仅当返回 unknown 且配置了 API key 时再调用 LLM。
+    """
+    error_type, error_label = _classify_error_by_rules(
+        grammar_point_id, student_answer, expected_answer, question
+    )
+    if error_type != "unknown":
+        return (error_type, error_label)
+    if not (os.environ.get("OPENAI_API_KEY") or "").strip():
+        return _error_result("unknown")
+    error_type, error_label = _classify_error_llm(
+        grammar_point_id, question, expected_answer, student_answer
+    )
+    if error_type != "unknown":
+        print(
+            f"[Phase 2] error classification fallback=llm gp={grammar_point_id} question_id={question.get('id', '')}",
+            flush=True,
+        )
+    return (error_type, error_label)
+
+
+def _error_result(error_type: str) -> tuple[str, str]:
+    """返回 (error_type, error_label)。"""
+    label = ERROR_TYPE_LABELS.get(error_type, ERROR_TYPE_LABELS["unknown"])
+    return (error_type, label)
+
+
 # ----- Pydantic 请求体 / 响应体 -----
 
 
@@ -636,6 +1039,11 @@ class SubmitResponse(BaseModel):
     expected_answer: str
     explanation: str = ""
     grammar_point_id: Optional[str] = None
+    # Phase 2 Step 2：答错时返回错因，答对时为 None
+    error_type: Optional[str] = None
+    error_label: Optional[str] = None
+    # Phase 2 Step 3：答错时返回一道补救题，答对时为 None；题目结构同 GET /api/question
+    remedial_question: Optional[dict] = None
 
 
 class AttemptRecord(BaseModel):
@@ -647,6 +1055,11 @@ class AttemptRecord(BaseModel):
     grammar_point_id: Optional[str] = None
     question_text: Optional[str] = None
     explanation: Optional[str] = None
+    # Phase 2 Step 2：错因与补救相关字段
+    error_type: Optional[str] = None
+    error_label: Optional[str] = None
+    is_remedial: bool = False
+    parent_question_id: Optional[str] = None
 
 
 class GrammarPointSummary(BaseModel):
@@ -716,14 +1129,33 @@ def post_hint(body: HintRequest) -> dict:
 
 @app.post("/api/submit", response_model=SubmitResponse)
 def post_submit(body: SubmitRequest) -> dict:
-    """根据 question_id 从注册表查题，评估答案，写入 attempts，返回结果与 explanation。"""
+    """根据 question_id 从注册表查题，评估答案，写入 attempts。答错时返回 error_type / error_label；仅普通题答错时返回 remedial_question。补救题只做一层，答错不再生成第二层补救题。"""
     question = QUESTION_REGISTRY.get(body.question_id)
     if not question:
         raise HTTPException(status_code=404, detail="Question not found")
 
+    is_remedial = bool(question.get("is_remedial_question"))
+    parent_question_id: Optional[str] = question.get("parent_question_id") if is_remedial else None
+
     correct, expected_answer = evaluate_answer(question, body.answer)
     explanation = generate_explanation(question, correct, body.answer)
     feedback = "答对了！" if correct else "答错了。"
+
+    error_type: Optional[str] = None
+    error_label: Optional[str] = None
+    remedial_question: Optional[dict] = None
+    if not correct:
+        error_type, error_label = classify_error(
+            grammar_point_id=question.get("grammar_point_id") or "",
+            student_answer=body.answer,
+            expected_answer=expected_answer,
+            question=question,
+        )
+        if not is_remedial:
+            gp_id = question.get("grammar_point_id") or GRAMMAR_POINTS[0]["id"]
+            remedial = generate_remedial_question(gp_id, error_type, parent_question_id=body.question_id)
+            QUESTION_REGISTRY[remedial["id"]] = remedial
+            remedial_question = {k: v for k, v in remedial.items() if k not in _QUESTION_INTERNAL_KEYS}
 
     global attempt_id_counter
     attempt_id_counter += 1
@@ -736,6 +1168,10 @@ def post_submit(body: SubmitRequest) -> dict:
         "grammar_point_id": question.get("grammar_point_id"),
         "question_text": question.get("text"),
         "explanation": explanation,
+        "error_type": error_type,
+        "error_label": error_label,
+        "is_remedial": is_remedial,
+        "parent_question_id": parent_question_id,
     }
     attempts.append(attempt)
 
@@ -746,6 +1182,9 @@ def post_submit(body: SubmitRequest) -> dict:
         "expected_answer": expected_answer,
         "explanation": explanation,
         "grammar_point_id": question.get("grammar_point_id"),
+        "error_type": error_type,
+        "error_label": error_label,
+        "remedial_question": remedial_question,
     }
 
 
