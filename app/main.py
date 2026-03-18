@@ -20,6 +20,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from services.error_classification import classify_error
+from services.progress_summary import build_progress_summary
 from services.question_generation import (
     generate_question as _generate_question_impl,
     generate_remedial_question as _generate_remedial_question_impl,
@@ -259,6 +260,90 @@ class GrammarPointSummary(BaseModel):
     description: str
 
 
+# Phase 3 Step 1：学习进度概览 API 响应模型
+class ProgressErrorSummary(BaseModel):
+    """单个错因及其出现次数。"""
+    error_type: str
+    error_label: str
+    count: int
+
+
+class GrammarPointProgressSummary(BaseModel):
+    """按语法点聚合的进度。"""
+    grammar_point_id: str
+    grammar_point_label: str
+    total_attempts: int
+    correct_attempts: int
+    accuracy: float
+    wrong_attempts: int
+    normal_attempts: int
+    remedial_attempts: int
+    normal_correct_attempts: int
+    remedial_correct_attempts: int
+    normal_accuracy: float
+    remedial_accuracy: float
+    top_error_types: list[ProgressErrorSummary]
+
+
+class OverallProgressSummary(BaseModel):
+    """整体进度。"""
+    total_attempts: int
+    correct_attempts: int
+    accuracy: float
+    normal_attempts: int
+    remedial_attempts: int
+    normal_correct_attempts: int
+    remedial_correct_attempts: int
+    normal_accuracy: float
+    remedial_accuracy: float
+
+
+class RecentAttemptsSummary(BaseModel):
+    """最近窗口内的作答汇总。"""
+    total_attempts: int
+    correct_attempts: int
+    wrong_attempts: int
+    accuracy: float
+
+
+class RecentErrorTrendItem(BaseModel):
+    """最近窗口内单条作答的错误趋势点。"""
+    index: int
+    attempt_id: str
+    correct: bool
+    is_error: bool
+
+
+class AccuracyTrendItem(BaseModel):
+    """最近窗口内的累计正确率趋势点。"""
+    index: int
+    accuracy: float
+
+
+class RemedialEffectTrendItem(BaseModel):
+    """最近窗口内的补救题效果趋势点（仅补救题样本）。"""
+    index: int
+    correct: bool
+    accuracy: float
+
+
+class ProgressDiagnostics(BaseModel):
+    """Phase 3 Step 2：趋势与诊断增强。"""
+    recent_window_size: int
+    recent_attempts: RecentAttemptsSummary
+    recent_error_trend: list[RecentErrorTrendItem]
+    accuracy_trend: list[AccuracyTrendItem]
+    remedial_effect_trend: list[RemedialEffectTrendItem]
+    weakest_grammar_points: list[GrammarPointProgressSummary]
+
+
+class ProgressSummaryResponse(BaseModel):
+    """GET /api/progress_summary 完整响应。"""
+    overall: OverallProgressSummary
+    by_grammar_point: list[GrammarPointProgressSummary]
+    diagnostics: Optional[ProgressDiagnostics] = None
+
+
 # ----- 路由 -----
 
 
@@ -304,6 +389,27 @@ def get_llm_status() -> dict:
         "api_key_present": bool(api_key.strip()),
         "api_key_masked": _mask_api_key(api_key) if api_key else None,
     }
+
+
+@app.post("/api/debug/reset_demo_state")
+def reset_demo_state() -> dict[str, str]:
+    """
+    仅用于本地 demo/验收：重置内存态数据，避免每次都必须重启后端。
+    - 清空 attempts 与去重缓存
+    - 重置计数器
+    - 清空动态题注册表，但保留固定题 q_001
+    """
+    global attempt_id_counter, question_counter, remedial_question_counter
+    attempts.clear()
+    attempt_id_counter = 0
+    question_counter = 0
+    remedial_question_counter = 0
+
+    RECENT_QUESTION_TEXTS.clear()
+    QUESTION_REGISTRY.clear()
+    _register_fixed_question()
+
+    return {"status": "ok", "message": "demo state reset"}
 
 
 @app.post("/api/hint", response_model=HintResponse)
@@ -382,3 +488,38 @@ def get_attempts(limit: int = 20) -> list[dict]:
     """返回作答记录列表，按插入顺序逆序（最新在前），最多 limit 条。"""
     # 列表按 append 顺序存储，逆序即最新在前，无需解析时间
     return list(reversed(attempts))[:limit]
+
+
+@app.get("/api/progress_summary", response_model=ProgressSummaryResponse)
+def get_progress_summary(
+    grammar_point_id: Optional[str] = None,
+    time_range: str = "all",
+    sort_by: Optional[str] = None,
+    sort_order: str = "asc",
+    recent_n: Optional[str] = None,
+) -> dict[str, Any]:
+    """返回学习进度概览（支持可选筛选 + 排序）。"""
+    if time_range not in ("all", "today", "this_week"):
+        time_range = "all"
+    if sort_by not in (None, "accuracy", "wrong_attempts"):
+        sort_by = None
+    if sort_order not in ("asc", "desc"):
+        sort_order = "asc"
+    # recent_n 允许非法输入（如 recent_n=abc），统一回退为 10，避免 FastAPI 422
+    parsed_recent_n = 10
+    if recent_n is not None:
+        try:
+            parsed_recent_n = int(str(recent_n).strip())
+        except Exception:
+            parsed_recent_n = 10
+    if parsed_recent_n <= 0:
+        parsed_recent_n = 10
+    return build_progress_summary(
+        attempts,
+        GRAMMAR_POINTS,
+        grammar_point_id=grammar_point_id,
+        time_range=time_range,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        recent_n=parsed_recent_n,
+    )
